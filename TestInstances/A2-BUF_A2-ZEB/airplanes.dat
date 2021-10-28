@@ -1,0 +1,4 @@
+# airplanes
+# id	cost/km	seats	current loc.	min ini fuel	max ini fuel	final loc.	min final fuel	max final fuel	fuel type	fuel/km	speed	max fuel	empty mass	additional turnover	reserve fuel	contigence ratio	pilot weight
+0	12.5	12	CBE	280	280	CBE	558	1509	2	1.25	260	1959	5260	0	450	1.05	200
+1	12.5	12	CBE	0	159	JAO	200	1509	2	1.25	260	1959	5239	0	450	1.05	200

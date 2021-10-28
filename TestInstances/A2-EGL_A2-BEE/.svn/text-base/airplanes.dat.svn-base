@@ -1,0 +1,4 @@
+# airplanes
+# id	cost/km	seats	current loc.	min ini fuel	max ini fuel	final loc.	min final fuel	max final fuel	fuel type	fuel/km	speed	max fuel	empty mass	additional turnover	reserve fuel	contigence ratio	pilot weight
+0	12.5	12	SLI	0	509	SLI	527	985	2	1.25	260	1959	5230	0	450	1.05	200
+1	7.4	5	VUM	0	171	VUM	202	371	1	0.48	195	467	2140	0	96	1.05	200
