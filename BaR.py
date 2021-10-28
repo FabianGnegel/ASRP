@@ -623,14 +623,14 @@ class Airport():
             thevars = []
             thecoefs = []
             pairs= [cplex.SparsePair(thevars,thecoefs)]
-            rhs= [sum([1 for r,req in self.requests.items() if req.origin == self.name or req.destination == self.name ])+sum([1 for p,pla in self.planes.items() if pla.origin == self])]
+            rhs= [sum([1 for r,req in self.requests.items() if req.origin == self.name or req.destination == self.name ])+sum([1 for p,pla in self.planes.items() if pla.origin == self.name])]
             senses = ["L"]
             self.maxVisitsConstraints1 = modelHandler.addConstraints(names,pairs,senses,rhs)
             names = [f"max_visits2_{self.name}"]
             thevars = []
             thecoefs = []
             pairs= [cplex.SparsePair(thevars,thecoefs)]
-            rhs= [sum([1 for r,req in self.requests.items() if req.origin == self.name or req.destination == self.name ])+sum([1 for p,pla in self.planes.items() if pla.destination == self])]
+            rhs= [sum([1 for r,req in self.requests.items() if req.origin == self.name or req.destination == self.name ])+sum([1 for p,pla in self.planes.items() if pla.destination == self.name])]
             senses = ["L"]
             self.maxVisitsConstraints2 = modelHandler.addConstraints(names,pairs,senses,rhs)
     def addCopy(self,p):
@@ -1439,6 +1439,8 @@ class Tree():
         self.heuristicUB = heuristicUB
         self.ub = heuristicUB
         self.lb = -bigNum
+        self.bestUB = heuristicUB
+        self.bestLB = 0
         self.printInterval = 6
         self.count = 0
         self.psiAvg = 0.0
@@ -1471,6 +1473,8 @@ class Tree():
                     minLb = node.lowerBound
             if self.lb < minLb:
                 self.lb = minLb
+            if minLb > self.bestLB:
+                self.bestLB = minLb
         return self.openNodes.pop(minInd)
     def branch(self,node):
         branchVar,branchVal = node.chooseBranchVar()
@@ -1521,6 +1525,7 @@ class Tree():
                     print ("Root node has same lower bound as branch tree, restarting from root")
                     self.openNodes=[newRoot]
                     self.lb = newRoot.lowerBound
+                    self.bestLB = self.lb
                 else:
                     self.openNodes= [node for node in self.openNodes if node.lowerBound < self.ub -0.1]
                     for openNode in self.openNodes:
@@ -1530,9 +1535,12 @@ class Tree():
                     #self.solution_path = self.vrp.solToPaths(sol)
                     print( "Integer feasible solution found, objective: %f" %node.lowerBound)
                     self.ub = node.lowerBound
+                    self.bestUB = self.ub
                     self.openNodes= [node for node in self.openNodes if node.lowerBound < self.ub -0.1]
                     self.solutionNode = node
         self.solveTime= time.time()-t0
+        if len(self.openNodes)==0:
+            self.bestUB = self.solutionNode.lowerBound
     def iterativeRefinement(self):
         self.count=0
         self.solutionNode = 0
@@ -1562,11 +1570,20 @@ class Tree():
             if self.solutionNode==0:
                 break
             primalFeasible = not self.graph.refineBySolution(self.solutionNode)
+            if primalFeasible:
+                break
+            if self.solutionNode.lowerBound > self.bestLB:
+                self.bestLB = self.solutionNode.lowerBound
             self.solutionNode=0
             self.openNodes = [TreeNode(self,[])]
             self.lb=0
-            self.ub = 30000
+            self.ub = self.heuristicUB
+            
+        
         self.solveTime= time.time()-t0
+        if primalFeasible:
+            self.bestUB = self.solutionNode.lowerBound
+            self.bestLB = self.solutionNode.lowerBound
 
 directories = {'BUF-AIV':('Testinstances/A2-BUF_A2-AIV',12615),
                'BUF-ANT':('Testinstances/A2-BUF_A2-ANT',20725),
@@ -1608,22 +1625,33 @@ while added:
     g.modelHandler.solveModel()
     added = g.analysizeSolution()
 """
-fileName = 'results.txt'
+if sys.argv[2] == 'BaR':
+    fileName = 'resultsBaR.txt'
+else:
+    fileName = 'resultsIR.txt'
+    
+file = open(fileName, "a")
+file.write("{")
+file.close()
 for inte in ints:
     airportData,tripData,requestData,planeData = readData(directories[intToDir[inte]][0])
     g=Graph(airportData,tripData,requestData,planeData)
     tree = Tree(g,controlParameters,directories[intToDir[inte]][1]+1)
     if sys.argv[2] == 'BaR':
+        
         solTime = time.time()
         tree.branchAndRefine()
         solTime = time.time()-solTime
         file = open(fileName, "a")
-        file.write(f"{intToDir[inte]}, alg: {sys.argv[2]}, nodes: {tree.count}, time: {solTime}\n")
+        file.write(f"'{intToDir[inte]}': {{ 'alg': '{sys.argv[2]}', 'nodes': {tree.count}, 'time': {solTime}, 'uB': {tree.bestUB}, 'lB': {tree.bestLB} }}\n")
         file.close()
     else:
         solTime = time.time()
         tree.iterativeRefinement()
         solTime = time.time()-solTime
         file = open(fileName, "a")
-        file.write(f"{intToDir[inte]}, alg: {sys.argv[2]}, nodes: {tree.count}, time: {solTime}\n")
+        file.write(f"'{intToDir[inte]}': {{ 'alg': '{sys.argv[2]}', 'nodes': {tree.count}, 'time': {solTime}, 'uB': {tree.bestUB}, 'lB': {tree.bestLB} }},\n")
         file.close()
+file = open(fileName, "a")
+file.write("}")
+file.close()
