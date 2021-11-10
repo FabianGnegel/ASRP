@@ -1500,6 +1500,7 @@ class Tree():
                 if new_node1.lowerBound < self.ub-eps:
                     self.openNodes.append(new_node1)
     def branchAndRefine(self):
+        self.refineCount = 0
         self.count=0
         #return
         t0 = time.time()
@@ -1509,6 +1510,7 @@ class Tree():
             self.conditionalPrint("Current best upper Bound: %f " % (self.ub))
             self.conditionalPrint(f"Number of open nodes: {len(self.openNodes)}\n Number of iterations: {self.count}")
             node = self.chooseNode()
+            self.solutionNode = 0
             if node.updatedLpRelaxation == 0:
                 self.graph.modelHandler.solveLpRelaxation(node)
             if not node.feasible or node.lowerBound >= self.ub-eps:
@@ -1533,15 +1535,17 @@ class Tree():
             else:
                 if node.lowerBound < self.ub-eps:
                     #self.solution_path = self.vrp.solToPaths(sol)
+                    self.refineCount += 1
                     print( "Integer feasible solution found, objective: %f" %node.lowerBound)
                     self.ub = node.lowerBound
                     self.bestUB = self.ub
                     self.openNodes= [node for node in self.openNodes if node.lowerBound < self.ub -0.1]
                     self.solutionNode = node
         self.solveTime= time.time()-t0
-        if len(self.openNodes)==0:
+        if len(self.openNodes)==0 and self.solutionNode != 0:
             self.bestUB = self.solutionNode.lowerBound
     def iterativeRefinement(self):
+        self.refineCount = 0
         self.count=0
         self.solutionNode = 0
         #return
@@ -1572,6 +1576,7 @@ class Tree():
             primalFeasible = not self.graph.refineBySolution(self.solutionNode)
             if primalFeasible:
                 break
+            self.refineCount += 1
             if self.solutionNode.lowerBound > self.bestLB:
                 self.bestLB = self.solutionNode.lowerBound
             self.solutionNode=0
@@ -1608,11 +1613,11 @@ directories = {'BUF-AIV':('Testinstances/A2-BUF_A2-AIV',12615),
                'LEO-BOK':('Testinstances/A2-LEO_A2-BOK',15373),
                'LEO-JKL':('Testinstances/A2-LEO_A2-JKL',17552),
                'LEO-NAS':('Testinstances/A2-LEO_A2-NAS',18232),
-               'LEO-OWL':('Testinstances/A2-LEO_A2-OWL',15828),
+               'LEO-OWL':('Testinstances/A2-LEO_A2-OWL',17028),
                }
 
 
-controlParameters = {'timeLimit':18000}
+controlParameters = {'timeLimit':36000}
 
 
 intToDir={i:dire for i,dire in enumerate(directories.keys())}
@@ -1626,15 +1631,18 @@ while added:
     added = g.analysizeSolution()
 """
 if sys.argv[2] == 'BaR':
-    fileName = 'resultsBaR.txt'
+    fileName = 'resultsBaR'+sys.argv[1]
 else:
-    fileName = 'resultsIR.txt'
+    fileName = 'resultsIR'+sys.argv[1]
     
 file = open(fileName, "a")
 file.write("{")
 file.close()
+
 for inte in ints:
     airportData,tripData,requestData,planeData = readData(directories[intToDir[inte]][0])
+    requestData.pop(list(requestData.keys())[-1])
+    requestData.pop(list(requestData.keys())[-1])
     g=Graph(airportData,tripData,requestData,planeData)
     tree = Tree(g,controlParameters,directories[intToDir[inte]][1]+1)
     if sys.argv[2] == 'BaR':
@@ -1643,14 +1651,14 @@ for inte in ints:
         tree.branchAndRefine()
         solTime = time.time()-solTime
         file = open(fileName, "a")
-        file.write(f"'{intToDir[inte]}': {{ 'alg': '{sys.argv[2]}', 'nodes': {tree.count}, 'time': {solTime}, 'uB': {tree.bestUB}, 'lB': {tree.bestLB} }}\n")
+        file.write(f"'{intToDir[inte]}': {{ 'alg': '{sys.argv[2]}', 'nodes': {tree.count}, 'time': {solTime}, 'uB': {tree.bestUB}, 'lB': {tree.bestLB}, 'iter': {tree.refineCount} }}\n")
         file.close()
     else:
         solTime = time.time()
         tree.iterativeRefinement()
         solTime = time.time()-solTime
         file = open(fileName, "a")
-        file.write(f"'{intToDir[inte]}': {{ 'alg': '{sys.argv[2]}', 'nodes': {tree.count}, 'time': {solTime}, 'uB': {tree.bestUB}, 'lB': {tree.bestLB} }},\n")
+        file.write(f"'{intToDir[inte]}': {{ 'alg': '{sys.argv[2]}', 'nodes': {tree.count}, 'time': {solTime}, 'uB': {tree.bestUB}, 'lB': {tree.bestLB}, 'iter': {tree.refineCount}  }},\n")
         file.close()
 file = open(fileName, "a")
 file.write("}")
